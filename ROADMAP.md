@@ -50,11 +50,12 @@ sesión de 10 minutos, semana liviana).
 
 - **Servidor de API** — NestJS + Prisma sobre Postgres: módulos, migraciones, validación, tests y manejo de
   errores, en un monorepo (pnpm) con la web.
-  <!-- id=api kind=infra status=in_progress effort=L
-    why="Ya está la base: configuración validada con Zod, Prisma 7 con el adaptador de pg, Redis, MinIO,
-    /api/health y tests. Falta la validación de requests y el manejo de errores. Las consultas pesadas
-    (rachas, feed, rankings) van con TypedSQL o $queryRaw donde el query builder de Prisma no alcance. Todo
-    lo demás cuelga de acá." -->
+  <!-- id=api kind=infra status=done effort=L
+    why="Prisma 7 con el adaptador de pg, Redis, MinIO, /api/health y tests. El entorno y los requests se
+    validan con Zod: cada ruta declara su schema (@Body({ schema })) y, si falla, responde 400 con un issue
+    por campo y en español. Los errores usan el formato de Nest: un unique de Prisma devuelve 409, un
+    registro inexistente 404, y los 500 no exponen detalles. Las consultas pesadas (rachas, feed, rankings)
+    van con TypedSQL o $queryRaw donde el query builder de Prisma no alcance." -->
 - **App web (PWA) base** — Next.js (App Router) con Serwist para el service worker, manifest para que se pueda
   instalar y un sistema de diseño mínimo.
   <!-- id=web_app kind=infra status=in_progress effort=M
