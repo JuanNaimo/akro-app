@@ -1,26 +1,65 @@
 @import "tailwindcss";
 
+/* Valores crudos: acá se define el modo claro y el oscuro. Los componentes usan solo los
+   tokens de @theme (bg-brand, text-soft, border-line…), nunca hex ni la paleta fija. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --brand: #6b4fd8;
+  --brand-hover: #5a3fc4;
+  --brand-text: #5a3fc4;
+  --brand-soft: #efebfc;
+  --page: #f7f6fb;
+  --surface: #ffffff;
+  --strong: #1a1625;
+  --soft: #5f5b6e;
+  --line: #8f8a9f;
+  --danger: #b42318;
+  --danger-soft: #fef0ee;
+  --success: #067647;
+  --success-soft: #e8f6ee;
+  --warning: #92400e;
+  --warning-soft: #fdf3dc;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --brand-hover: #7d63e6;
+    --brand-text: #b3a4f5;
+    --brand-soft: #2a2250;
+    --page: #0f0d16;
+    --surface: #1a1724;
+    --strong: #f1eef8;
+    --soft: #a9a4b8;
+    --line: #6e6a80;
+    --danger: #ff8a80;
+    --danger-soft: #3a1815;
+    --success: #5fd08f;
+    --success-soft: #11301f;
+    --warning: #f5c05a;
+    --warning-soft: #35280c;
   }
 }
 
+@theme inline {
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-text: var(--brand-text);
+  --color-brand-soft: var(--brand-soft);
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-strong: var(--strong);
+  --color-soft: var(--soft);
+  --color-line: var(--line);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--page);
+  color: var(--strong);
 }
