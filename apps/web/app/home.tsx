@@ -9,6 +9,7 @@ import { Notice } from "@/components/ui/notice";
 import { ApiError } from "@/lib/api";
 import { logout, me, type PublicUser } from "@/lib/auth";
 import { GENERIC_ERROR } from "@/lib/form-state";
+import { hardNavigate } from "@/lib/navigation";
 
 export function Home() {
   const router = useRouter();
@@ -35,7 +36,7 @@ export function Home() {
     setLeaving(true);
     try {
       await logout();
-      router.replace("/login");
+      hardNavigate("/login");
     } catch (e) {
       setLeaving(false);
       setError(e instanceof ApiError ? e.message : GENERIC_ERROR);

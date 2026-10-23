@@ -108,6 +108,8 @@ test("registro, verificación, reset de contraseña y magic link", async ({
   await expect(page.getByText("Entraste como")).toContainText(email);
   await page.getByRole("button", { name: "Salir" }).click();
   await expect(page).toHaveURL(/\/login/);
+  // Salir no deja el mail de la cuenta anterior precargado en el formulario.
+  await expect(page.getByLabel("Mail")).toHaveValue("");
 
   // 7. login con la contraseña vieja
   await login(page, password);
