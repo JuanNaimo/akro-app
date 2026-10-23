@@ -20,6 +20,7 @@ docker compose up --build
 - Web: http://localhost:3000
 - API: http://localhost:3001/api/health
 - Consola de MinIO: http://localhost:9001 (usuario `akro`, clave `akro-dev-secret`)
+- Mails que manda el API (Mailpit): http://localhost:8025
 
 El código entra al contenedor por bind mount, así que los cambios se recargan solos. `node_modules` vive en
 volúmenes del contenedor (los binarios nativos son distintos en cada sistema): si cambian las dependencias,
@@ -43,6 +44,9 @@ pnpm dev
 
 Si falta algún servicio, el API arranca igual y `/api/health` (también visible en la home) muestra cuál.
 
+Sin `SMTP_URL`, los mails (verificación de cuenta, recuperación de contraseña) no se envían: se loguean en la
+consola del API, con el link incluido.
+
 ## Comandos
 
 | Comando | Qué hace |
@@ -52,6 +56,29 @@ Si falta algún servicio, el API arranca igual y `/api/health` (también visible
 | `pnpm lint` · `pnpm typecheck` · `pnpm test` | Lint, tipos y tests. Los e2e del API: `pnpm --filter api test:e2e`. |
 | `pnpm --filter api db:migrate` | Crea y aplica migraciones de Prisma. |
 | `pnpm roadmap` | Abre el roadmap con [Roadmapper](https://github.com/SantiagoBaezDuic/roadmapper) (repo privado: hace falta acceso). |
+
+## Tests e2e del API
+
+`pnpm --filter api test:e2e` necesita Postgres. Usa la base `akro_test` (con `docker compose up -d postgres`
+alcanza), a la que le aplica las migraciones que falten; cada test vacía las tablas. Para usar otra, definí `TEST_DATABASE_URL`: el nombre
+de la base tiene que terminar en `_test`.
+
+## Tests e2e de la web (Playwright)
+
+`pnpm --filter web test:e2e` recorre el flujo de auth en un navegador (Chromium con el viewport de un
+Pixel 7): registro, verificación del mail, reset de contraseña, login y magic link. No forma parte de
+`pnpm test`.
+
+- **Requisitos:** Postgres con la base `akro_test` (las migraciones las aplica solo; como en el API, se
+  cambia con `TEST_DATABASE_URL`) y Chromium, que se
+  instala una vez con `pnpm --filter web exec playwright install chromium`. No hacen falta Docker, Mailpit,
+  Redis ni MinIO.
+- **Qué levanta solo:** el API compilado (`pnpm build && pnpm start:prod`, sin watch), la web con
+  `next dev` y un servidor SMTP de prueba en Node que guarda los mails en memoria.
+- **Puertos:** web 3100, API 3101, SMTP de prueba 2525 y su HTTP (`GET`/`DELETE /messages`) 2526. Tienen que
+  estar libres; son otros que los de `pnpm dev`.
+- **Ojo:** la web de los e2e usa la misma carpeta `.next` que `pnpm dev`, y Next no deja dos `next dev` a la
+  vez sobre ella. Si `pnpm dev` está corriendo, pará la web antes de correr los e2e.
 
 ## PWA
 

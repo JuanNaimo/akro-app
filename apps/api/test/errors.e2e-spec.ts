@@ -1,13 +1,7 @@
-import {
-  Body,
-  Controller,
-  INestApplication,
-  Param,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Param, Post } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { App } from 'supertest/types.js';
 import { z } from 'zod';
 import { configureApp } from './../src/app.setup.js';
 import { Prisma } from './../src/generated/prisma/client.js';
@@ -42,7 +36,7 @@ class ProbeController {
 }
 
 describe('Validación y errores (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: NestExpressApplication;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -50,7 +44,9 @@ describe('Validación y errores (e2e)', () => {
     }).compile();
 
     // Sin logger: los 500 de estos tests son esperados.
-    app = moduleRef.createNestApplication({ logger: false });
+    app = moduleRef.createNestApplication<NestExpressApplication>({
+      logger: false,
+    });
     configureApp(app);
     await app.init();
   });

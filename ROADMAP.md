@@ -39,6 +39,8 @@ sesión de 10 minutos, semana liviana).
 | Desarrollo | Docker Compose para el equipo; el proyecto también corre sin Docker. | 2026-10-22 |
 | Front | Next.js (React) como PWA, con Serwist para el service worker. | 2026-10-22 |
 | Auth | Sesiones propias: cookie httpOnly + tabla de sesiones en Postgres, contraseñas con argon2id. | 2026-10-22 |
+| Verificación de mail | Se puede usar la app sin verificar el mail, con un aviso. Lo social puede pedirlo más adelante. | 2026-10-23 |
+| Rutas | Las rutas de la web van en inglés (`/login`, `/verify-email`…); los textos, en español. | 2026-10-23 |
 | Hosting | Docker Compose en un servidor propio; más adelante, el mismo compose en un VPS (DigitalOcean o similar). | 2026-10-22 |
 | MVP | Estudio y progreso (Fase 1) + amigos, toques, push y calendario de exámenes (Fase 2). | 2026-10-22 |
 | IA | El quiz con IA y la evaluación con Jev quedan fuera del MVP (Fase 7). | 2026-10-22 |
@@ -58,11 +60,12 @@ sesión de 10 minutos, semana liviana).
     van con TypedSQL o $queryRaw donde el query builder de Prisma no alcance." -->
 - **App web (PWA) base** — Next.js (App Router) con Serwist para el service worker, manifest para que se pueda
   instalar y un sistema de diseño mínimo.
-  <!-- id=web_app kind=infra status=in_progress effort=M
-    why="Ya se instala: manifest, íconos provisorios, service worker con página offline y /api pasando a
-    Nest por el rewrite de Next. Falta el sistema de diseño. Se diseña mobile-first: casi siempre se va a usar
-    desde el celular. Web y API van bajo el mismo dominio, así la cookie de sesión es de primera parte y no
-    hace falta CORS." -->
+  <!-- id=web_app kind=infra status=done effort=M
+    why="Se instala: manifest, íconos provisorios, service worker con página offline y /api pasando a Nest
+    por el rewrite de Next. El sistema de diseño mínimo (tokens en globals.css, claro y oscuro, y los
+    componentes de components/ui) crece con cada pantalla. Tests con Vitest y, de punta a punta, con
+    Playwright. Se diseña mobile-first: casi siempre se va a usar desde el celular. Web y API van bajo el
+    mismo dominio, así la cookie de sesión es de primera parte y no hace falta CORS." -->
 - **Entorno de desarrollo con Docker** — `docker compose up` levanta Postgres, Redis, MinIO, el API y la web
   con recarga automática.
   <!-- id=dev_env kind=infra status=in_progress effort=M deps=api,web_app
@@ -79,7 +82,10 @@ sesión de 10 minutos, semana liviana).
     puertos: Cloudflare Tunnel lo expone con HTTPS sin abrir nada. La PWA y las push necesitan dominio y
     HTTPS desde el primer día." -->
 - **Mail transaccional** — verificación de cuenta y recuperación de contraseña.
-  <!-- id=email kind=infra effort=S deps=api -->
+  <!-- id=email kind=infra status=done effort=S deps=api
+    why="Nodemailer por SMTP. En desarrollo, Mailpit atrapa todos los mails, y sin SMTP_URL se loguean en la
+    consola. Los envíos no se esperan, así un SMTP caído no rompe el pedido; cuando estén los jobs, pasan a una
+    cola con reintentos. El proveedor de producción está en el checklist del servidor." -->
 - **Jobs programados** — cron y cola para lo que pasa con la app cerrada: el cierre del día de cada usuario
   (rachas), push programadas y recordatorios.
   <!-- id=jobs kind=infra effort=M deps=api
@@ -118,19 +124,24 @@ sesión de 10 minutos, semana liviana).
 - [ ] Staging y producción separados: dos stacks del mismo compose.
 - [ ] CI que corre los tests, construye las imágenes y despliega.
 - [ ] Secretos fuera del repo (sesión, VAPID, SMTP).
+- [ ] Proveedor SMTP para producción (Resend, Brevo, SES…), con SPF y DKIM en el dominio.
 - [ ] Monitoreo mínimo: uptime y logs.
 
 ## Fase 1 — MVP: estudio y progreso
 
 La mitad individual del MVP: Akro tiene que servir para estudiar aunque todavía no tengas amigos adentro.
 
-- **Cuentas y login** — mail y contraseña con sesiones propias, verificación de mail y recuperación de
-  contraseña; Google, más adelante.
-  <!-- id=auth effort=M deps=api,web_app,email
-    why="Las sesiones son propias para tener el control, y por eso la seguridad corre por nuestra cuenta.
-    Contraseñas con argon2id. Los tokens de sesión, verificación y reset se guardan hasheados y con
-    vencimiento. Límite de intentos de login (@nestjs/throttler). Contra CSRF, cookies SameSite=Lax y chequeo
-    de Origin. Google se suma con OAuth (librería arctic) cuando haga falta." -->
+- **Cuentas y login** — mail y contraseña con sesiones propias, magic link, verificación de mail y
+  recuperación de contraseña; Google, más adelante.
+  <!-- id=auth status=done effort=M deps=api,web_app,email
+    why="API y pantallas hechos: registro, login, logout, /me, verificación de mail, reset de contraseña y
+    magic link (opción extra al login: vence en 15 minutos, sirve una vez, se canjea desde cualquier
+    dispositivo y deja el mail verificado), con tests e2e contra Postgres y en el navegador. Google queda
+    para más adelante. Las sesiones son propias
+    para tener el control, y por eso la seguridad corre por nuestra cuenta: contraseñas con argon2id, tokens de
+    sesión, verificación y reset guardados hasheados y con vencimiento, límite de intentos (@nestjs/throttler)
+    y, contra CSRF, cookies SameSite=Lax y chequeo de Origin. Sin verificar el mail se usa la app igual, con un
+    aviso. Google se suma con OAuth (librería arctic) cuando haga falta." -->
 - **Perfil** — nombre, @usuario para que te encuentren, avatar (iniciales o emoji en el MVP) y, opcional,
   carrera y facultad.
   <!-- id=profile effort=S deps=auth -->
