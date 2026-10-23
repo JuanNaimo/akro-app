@@ -124,6 +124,32 @@ export class AuthController {
     await this.auth.resetPassword(body);
   }
 
+  @Public()
+  @Throttle(MAIL_THROTTLE)
+  @Post('magic-link')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async requestMagicLink(
+    @Body({ schema: emailSchema }) { email }: EmailInput,
+  ): Promise<void> {
+    await this.auth.requestMagicLink(email);
+  }
+
+  // Pública: el link del mail se puede abrir en otro dispositivo, y ahí abre la sesión.
+  @Public()
+  @Post('magic-link/verify')
+  @HttpCode(HttpStatus.OK)
+  async verifyMagicLink(
+    @Body({ schema: tokenSchema }) { token }: TokenInput,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<PublicUser> {
+    const signedIn = await this.auth.signInWithMagicLink(token);
+    // Como en el login, la sesión que traía la cookie se reemplaza por la nueva.
+    const previous = this.sessions.tokenFrom(req);
+    if (previous) await this.sessions.invalidate(previous);
+    return this.signIn(res, signedIn);
+  }
+
   private signIn(res: Response, { user, session }: SignedIn): PublicUser {
     this.sessions.writeCookie(res, session.token, session.expiresAt);
     return toPublicUser(user);

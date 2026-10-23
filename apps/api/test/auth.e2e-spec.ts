@@ -73,6 +73,7 @@ describe('Auth (e2e)', () => {
   }
   const verifyToken = () => tokenFrom('Confirmá tu mail en Akro');
   const resetToken = () => tokenFrom('Restablecé tu contraseña de Akro');
+  const magicToken = () => tokenFrom('Tu link para entrar a Akro');
 
   it('registra, mantiene la sesión y la cierra', async () => {
     const agent = browser();
@@ -270,7 +271,111 @@ describe('Auth (e2e)', () => {
       .expect(400);
   });
 
+  it('entra con el magic link desde otro dispositivo y verifica el mail', async () => {
+    await api().post('/api/auth/register').send(credentials).expect(201);
+    await api()
+      .post('/api/auth/magic-link')
+      .send({ email: 'ANA@akro.app' })
+      .expect(204);
+    const token = magicToken();
+    expect(mails.at(-1)?.text).toContain(
+      `http://localhost:3000/magic-link?token=${token}`,
+    );
+
+    // Otro dispositivo: un navegador sin cookies.
+    const agent = browser();
+    const signedIn = await agent
+      .post('/api/auth/magic-link/verify')
+      .send({ token })
+      .expect(200);
+    expect(signedIn.body).toEqual({
+      id: expect.any(String),
+      email: 'ana@akro.app',
+      emailVerified: true,
+    });
+    expect(sessionCookie(signedIn)).toContain('HttpOnly');
+    await agent.get('/api/auth/me').expect(200).expect(signedIn.body);
+
+    // Sirve una sola vez.
+    await api()
+      .post('/api/auth/magic-link/verify')
+      .send({ token })
+      .expect(400)
+      .expect((res) =>
+        expect(res.body.message).toBe('El link venció o no es válido'),
+      );
+  });
+
+  it('no delata si un mail tiene cuenta al pedir el magic link', async () => {
+    await api()
+      .post('/api/auth/magic-link')
+      .send({ email: 'nadie@akro.app' })
+      .expect(204);
+
+    expect(mails).toHaveLength(0);
+  });
+
+  it('solo acepta el último magic link, sin vencer y para lo suyo', async () => {
+    await api().post('/api/auth/register').send(credentials).expect(201);
+    const send = () =>
+      api()
+        .post('/api/auth/magic-link')
+        .send({ email: credentials.email })
+        .expect(204);
+    const verify = (token: string) =>
+      api().post('/api/auth/magic-link/verify').send({ token });
+
+    await send();
+    const first = magicToken();
+    await send();
+    const second = magicToken();
+    await verify(first).expect(400);
+    // El link de verificación no abre sesión.
+    await verify(verifyToken()).expect(400);
+
+    await prisma.emailToken.updateMany({
+      where: { kind: 'MAGIC_LINK' },
+      data: { expiresAt: new Date(Date.now() - 1) },
+    });
+    await verify(second).expect(400);
+  });
+
+  it('vence a los 15 minutos', async () => {
+    await api().post('/api/auth/register').send(credentials).expect(201);
+    const before = Date.now();
+    await api()
+      .post('/api/auth/magic-link')
+      .send({ email: credentials.email })
+      .expect(204);
+
+    const token = await prisma.emailToken.findFirstOrThrow({
+      where: { kind: 'MAGIC_LINK' },
+    });
+    const ttl = token.expiresAt.getTime() - before;
+    expect(ttl).toBeGreaterThan(14 * 60 * 1000);
+    expect(ttl).toBeLessThanOrEqual(15 * 60 * 1000 + 5000);
+  });
+
+  it('limita los pedidos de magic link', async () => {
+    for (let attempt = 0; attempt < 5; attempt++)
+      await api()
+        .post('/api/auth/magic-link')
+        .send({ email: 'nadie@akro.app' })
+        .expect(204);
+
+    await api()
+      .post('/api/auth/magic-link')
+      .send({ email: 'nadie@akro.app' })
+      .expect(429);
+  });
+
   it('rechaza los pedidos que cambian algo desde otro origen', async () => {
+    await api()
+      .post('/api/auth/magic-link/verify')
+      .set('Origin', 'https://otro-sitio.example')
+      .send({ token: 'cualquiera' })
+      .expect(403);
+
     await api()
       .post('/api/auth/register')
       .set('Origin', 'https://otro-sitio.example')

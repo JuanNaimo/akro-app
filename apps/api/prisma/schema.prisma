@@ -45,6 +45,7 @@ model Session {
 enum EmailTokenKind {
   VERIFY_EMAIL
   RESET_PASSWORD
+  MAGIC_LINK
 
   @@map("email_token_kind")
 }

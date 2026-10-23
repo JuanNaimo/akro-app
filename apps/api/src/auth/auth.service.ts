@@ -7,7 +7,11 @@ import {
 import { ConfigService } from '@nestjs/config';
 import type { Env } from '../config/env.js';
 import type { EmailTokenKind } from '../generated/prisma/client.js';
-import { resetPasswordMail, verifyEmailMail } from '../mail/mail-templates.js';
+import {
+  magicLinkMail,
+  resetPasswordMail,
+  verifyEmailMail,
+} from '../mail/mail-templates.js';
 import { MailService } from '../mail/mail.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type {
@@ -23,9 +27,12 @@ import {
 } from './sessions.service.js';
 import { generateToken, hashToken } from './tokens.js';
 
-const HOUR_MS = 60 * 60 * 1000;
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS = 60 * MINUTE_MS;
 const VERIFY_EMAIL_HOURS = 48;
 const RESET_PASSWORD_HOURS = 1;
+// Corto a propósito: el link abre una sesión sin pedir la contraseña.
+const MAGIC_LINK_MINUTES = 15;
 
 // Lo que la web ve de un usuario. emailVerified sirve para el aviso de «confirmá tu mail»:
 // sin verificar se puede usar la app igual.
@@ -112,7 +119,7 @@ export class AuthService {
     const token = await this.createEmailToken(
       user.id,
       'RESET_PASSWORD',
-      RESET_PASSWORD_HOURS,
+      RESET_PASSWORD_HOURS * HOUR_MS,
     );
     void this.mail.send({
       to: user.email,
@@ -144,11 +151,44 @@ export class AuthService {
     ]);
   }
 
+  // Como forgotPassword: si el mail no tiene cuenta no manda nada, pero responde igual.
+  async requestMagicLink(email: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true },
+    });
+    if (!user) return;
+    const token = await this.createEmailToken(
+      user.id,
+      'MAGIC_LINK',
+      MAGIC_LINK_MINUTES * MINUTE_MS,
+    );
+    void this.mail.send({
+      to: user.email,
+      ...magicLinkMail(this.link('/magic-link', token), MAGIC_LINK_MINUTES),
+    });
+  }
+
+  // Canjea el link por una sesión, desde cualquier dispositivo. Como el reset, deja el mail
+  // verificado: el link demostró que la persona tiene acceso.
+  async signInWithMagicLink(token: string): Promise<SignedIn> {
+    const userId = await this.consumeEmailToken(token, 'MAGIC_LINK');
+    await this.prisma.user.updateMany({
+      where: { id: userId, emailVerifiedAt: null },
+      data: { emailVerifiedAt: new Date() },
+    });
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      omit: { passwordHash: true },
+    });
+    return { user, session: await this.sessions.create(user.id) };
+  }
+
   private async sendVerification(user: { id: string; email: string }) {
     const token = await this.createEmailToken(
       user.id,
       'VERIFY_EMAIL',
-      VERIFY_EMAIL_HOURS,
+      VERIFY_EMAIL_HOURS * HOUR_MS,
     );
     void this.mail.send({
       to: user.email,
@@ -160,7 +200,7 @@ export class AuthService {
   private async createEmailToken(
     userId: string,
     kind: EmailTokenKind,
-    hours: number,
+    ttlMs: number,
   ): Promise<string> {
     const token = generateToken();
     await this.prisma.$transaction([
@@ -170,7 +210,7 @@ export class AuthService {
           id: hashToken(token),
           userId,
           kind,
-          expiresAt: new Date(Date.now() + hours * HOUR_MS),
+          expiresAt: new Date(Date.now() + ttlMs),
         },
       }),
     ]);

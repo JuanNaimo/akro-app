@@ -35,6 +35,22 @@ export function resetPasswordMail(link: string, hours: number): Template {
   };
 }
 
+export function magicLinkMail(link: string, minutes: number): Template {
+  return {
+    subject: 'Tu link para entrar a Akro',
+    text: [
+      '¡Hola! Para entrar a Akro, abrí este link:',
+      link,
+      `Vence en ${minutes} minutos y sirve una sola vez. Si no lo pediste, ignorá este mail: nadie puede entrar sin abrirlo.`,
+    ].join('\n\n'),
+    html: layout([
+      '<p>¡Hola! Para entrar a Akro, tocá el botón:</p>',
+      button(link, 'Entrar a Akro'),
+      `<p>Vence en ${minutes} minutos y sirve una sola vez. Si no lo pediste, ignorá este mail: nadie puede entrar sin abrirlo.</p>`,
+    ]),
+  };
+}
+
 function layout(paragraphs: string[]): string {
   return `<div style="font-family: Arial, Helvetica, sans-serif; font-size: 16px; line-height: 1.5; color: #171717; max-width: 480px">${paragraphs.join('')}</div>`;
 }
