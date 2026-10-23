@@ -63,6 +63,23 @@ consola del API, con el link incluido.
 alcanza), a la que le aplica las migraciones que falten; cada test vacía las tablas. Para usar otra, definí `TEST_DATABASE_URL`: el nombre
 de la base tiene que terminar en `_test`.
 
+## Tests e2e de la web (Playwright)
+
+`pnpm --filter web test:e2e` recorre el flujo de auth en un navegador (Chromium con el viewport de un
+Pixel 7): registro, verificación del mail, reset de contraseña, login y magic link. No forma parte de
+`pnpm test`.
+
+- **Requisitos:** Postgres con la base `akro_test` (las migraciones las aplica solo; como en el API, se
+  cambia con `TEST_DATABASE_URL`) y Chromium, que se
+  instala una vez con `pnpm --filter web exec playwright install chromium`. No hacen falta Docker, Mailpit,
+  Redis ni MinIO.
+- **Qué levanta solo:** el API compilado (`pnpm build && pnpm start:prod`, sin watch), la web con
+  `next dev` y un servidor SMTP de prueba en Node que guarda los mails en memoria.
+- **Puertos:** web 3100, API 3101, SMTP de prueba 2525 y su HTTP (`GET`/`DELETE /messages`) 2526. Tienen que
+  estar libres; son otros que los de `pnpm dev`.
+- **Ojo:** la web de los e2e usa la misma carpeta `.next` que `pnpm dev`, y Next no deja dos `next dev` a la
+  vez sobre ella. Si `pnpm dev` está corriendo, pará la web antes de correr los e2e.
+
 ## PWA
 
 En desarrollo el service worker está apagado para que no sirva versiones viejas. Para probar la app

@@ -156,17 +156,25 @@ título «Akro». Los textos de la UI van en español rioplatense y el código e
 ## Fase 4: Playwright (Sonnet)
 - Dependencia: `@playwright/test`, con `pnpm exec playwright install chromium`. Script `"test:e2e"`, fuera
   del `pnpm test` de la raíz, igual que los e2e del API.
-- **Requisitos**, documentados en el README:
-  - Postgres con la base `akro_test`, Redis y MinIO, como los e2e del API.
-  - Mailpit en `1025`/`8025`. Corre como binario suelto, sin Docker.
+- **Requisitos**, documentados en el README: Postgres con la base `akro_test`. Redis y MinIO no hacen falta,
+  porque el API arranca igual sin ellos.
+- **Mails, sin Mailpit.** Decisión del usuario: un servidor SMTP de prueba en Node, para que los e2e no
+  dependan de nada externo.
+  - Se arma con `smtp-server` y `mailparser`, como devDependencies de la web, y vive en
+    `e2e/mail-sink.ts`.
+  - Lo levanta el `globalSetup` de Playwright: SMTP en `:2525` y un HTTP chico en `:2526`, con
+    `GET /messages` (to, subject, text ya decodificado) y `DELETE /messages`.
+  - El `globalTeardown` lo cierra.
 - **`playwright.config.ts`:**
-  - `webServer` levanta el API con `DATABASE_URL=akro_test`, `SMTP_URL=smtp://localhost:1025` y
-    `WEB_ORIGIN=http://localhost:3000`, y la web en `:3000`.
+  - `webServer` levanta el API en `:3101`, con `DATABASE_URL=akro_test`, `SMTP_URL=smtp://localhost:2525` y
+    `WEB_ORIGIN=http://localhost:3100`.
+  - También levanta la web en `:3100`, con `API_INTERNAL_URL=http://localhost:3101`. Son puertos aparte para
+    no chocar con `pnpm dev`, y `reuseExistingServer: false`.
   - El proyecto usa el viewport de un celular, `devices['Pixel 7']`.
-  - Antes de correr, `globalSetup` aplica las migraciones a `akro_test`, reusando el chequeo de nombre
+  - Antes de correr, `globalSetup` aplica las migraciones a `akro_test`, con el mismo chequeo de nombre
     `_test` de `apps/api/test/setup-db.ts`.
-- **`e2e/auth.spec.ts`:** borra los mensajes de Mailpit (`DELETE /api/v1/messages`) y usa un mail único por
-  corrida. Saca los tokens de la API de Mailpit (`/api/v1/messages` y `/api/v1/message/{id}`). Recorre:
+- **`e2e/auth.spec.ts`:** vacía el buzón del sink, usa un mail único por corrida y saca los tokens de
+  `GET /messages`. Recorre:
   1. signup → `/check-email`
   2. link de verificación → «Mail verificado»
   3. `/`, ya sin el banner
@@ -174,7 +182,7 @@ título «Akro». Los textos de la UI van en español rioplatense y el código e
   5. `/forgot-password` → link de reset → nueva contraseña
   6. login con la nueva contraseña → `/`
   7. login con la contraseña vieja → error
-  8. salir → «Mandame un link» en `/login` → abrir el link de Mailpit → `/` con sesión
+  8. salir → «Mandame un link» en `/login` → abrir el link del mail → `/` con sesión
   Las contraseñas se generan al correr el test, nunca literales, por GitGuardian.
 - Verificación: `pnpm --filter web test:e2e` con los servicios levantados. Si acá no se pueden levantar sin
   Docker, se avisa y queda como pendiente.
