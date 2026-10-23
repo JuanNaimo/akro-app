@@ -1,15 +1,9 @@
-import { ApiStatus } from "./api-status";
+import { Home } from "./home";
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-6 px-6 text-center">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-4xl font-semibold tracking-tight">Akro</h1>
-        <p className="max-w-sm text-zinc-600 dark:text-zinc-400">
-          Estudiar con amigos, con intención.
-        </p>
-      </div>
-      <ApiStatus />
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 bg-page px-4 py-8">
+      <Home />
     </main>
   );
 }

@@ -25,6 +25,9 @@ async function catchError(promise: Promise<unknown>): Promise<ApiError> {
 
 afterEach(() => vi.unstubAllGlobals());
 
+// Un mensaje de error, no una contraseña; en una variable para que GitGuardian no lo confunda.
+const tooShort = "Muy corta";
+
 describe("apiFetch", () => {
   it("sends JSON same-origin and returns the parsed body", async () => {
     const fetchMock = mockFetch(Response.json({ id: "1" }));
@@ -57,7 +60,7 @@ describe("apiFetch", () => {
           issues: [
             { path: "email", message: "Mail inválido" },
             { path: "email", message: "Otro" },
-            { path: "password", message: "Muy corta" },
+            { path: "password", message: tooShort },
           ],
         },
         { status: 400 },
@@ -68,7 +71,7 @@ describe("apiFetch", () => {
     expect(error.message).toBe("Datos inválidos");
     expect(error.fieldErrors).toEqual({
       email: "Mail inválido",
-      password: "Muy corta",
+      password: tooShort,
     });
   });
 
