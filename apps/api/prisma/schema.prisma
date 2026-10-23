@@ -1,0 +1,13 @@
+// Schema de Akro. La URL de la base se configura en prisma7.config.ts (DATABASE_URL).
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  // Nest 12 compila como ESM con resolución nodenext: los imports llevan extensión .js.
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}

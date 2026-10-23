@@ -1,0 +1,21 @@
+# dependencias
+node_modules/
+
+# builds
+dist/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# cliente de Prisma generado (pnpm install lo regenera)
+apps/api/src/generated/
+
+# variables de entorno: solo se versionan los .env.example
+.env
+.env.*
+!.env.example
+
+# varios
+.DS_Store
+*.log

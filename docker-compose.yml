@@ -1,0 +1,125 @@
+# Entorno de desarrollo completo: docker compose up
+#   Web:              http://localhost:3000
+#   API:              http://localhost:3001/api/health
+#   Consola de MinIO: http://localhost:9001 (usuario akro, clave akro-dev-secret)
+name: akro
+
+x-node-app: &node-app
+  build:
+    context: ./docker
+    dockerfile: dev.Dockerfile
+  image: akro-dev-node
+  working_dir: /app
+  volumes:
+    - .:/app
+    # node_modules del contenedor (Linux), separados de los del host: los binarios nativos
+    # (Prisma, SWC, esbuild) son distintos en cada sistema.
+    - node_modules:/app/node_modules
+    - api_node_modules:/app/apps/api/node_modules
+    - web_node_modules:/app/apps/web/node_modules
+    - pnpm_store:/pnpm-store
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: akro
+      POSTGRES_PASSWORD: akro
+      POSTGRES_DB: akro
+    ports:
+      - "5432:5432"
+    volumes:
+      # Desde Postgres 18 la imagen guarda los datos en /var/lib/postgresql/<versión>.
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U akro -d akro"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    # MinIO dejó de publicar imágenes oficiales (su repo está archivado desde abril de 2026).
+    # Esta la mantiene Chainguard, compilada desde el código fuente.
+    image: cgr.dev/chainguard/minio:latest
+    # La imagen corre como UID 65532 y un volumen nuevo queda de root: en desarrollo, root.
+    user: root
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: akro
+      MINIO_ROOT_PASSWORD: akro-dev-secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
+  # Instala dependencias y genera el cliente de Prisma antes de levantar las apps.
+  deps:
+    <<: *node-app
+    command: >-
+      sh -c "pnpm install --frozen-lockfile --store-dir /pnpm-store
+      && pnpm --filter api exec prisma generate"
+    environment:
+      CI: "true"
+
+  api:
+    <<: *node-app
+    command: pnpm --filter api dev
+    depends_on:
+      deps:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://akro:akro@postgres:5432/akro
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: akro
+      S3_SECRET_KEY: akro-dev-secret
+      S3_BUCKET: akro
+      # Polling del watcher, solo si hace falta (ver .env.example).
+      TSC_WATCHFILE: ${TSC_WATCHFILE:-}
+      TSC_WATCHDIRECTORY: ${TSC_WATCHDIRECTORY:-}
+    ports:
+      - "3001:3001"
+
+  web:
+    <<: *node-app
+    command: pnpm --filter web dev --hostname 0.0.0.0
+    depends_on:
+      deps:
+        condition: service_completed_successfully
+      api:
+        condition: service_started
+    environment:
+      API_INTERNAL_URL: http://api:3001
+      WATCH_POLL_MS: ${WATCH_POLL_MS:-}
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  node_modules:
+  api_node_modules:
+  web_node_modules:
+  pnpm_store:

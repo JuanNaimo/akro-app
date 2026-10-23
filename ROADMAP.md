@@ -33,7 +33,10 @@ sesión de 10 minutos, semana liviana).
 | Tema | Decisión | Fecha |
 |---|---|---|
 | Plataforma | PWA (web instalable), mobile-first. La app nativa y el bloqueo de apps quedan estacionados. | 2026-10-22 |
-| Backend | NestJS sobre Postgres, con Drizzle como capa de datos (recomendado, a confirmar). | 2026-10-22 |
+| Backend | NestJS 12 + Prisma 7 sobre Postgres. | 2026-10-22 |
+| Caché | Redis. | 2026-10-22 |
+| Archivos | MinIO (API de S3). | 2026-10-22 |
+| Desarrollo | Docker Compose para el equipo; el proyecto también corre sin Docker. | 2026-10-22 |
 | Front | Next.js (React) como PWA, con Serwist para el service worker. | 2026-10-22 |
 | Auth | Sesiones propias: cookie httpOnly + tabla de sesiones en Postgres, contraseñas con argon2id. | 2026-10-22 |
 | Hosting | Docker Compose en un servidor propio; más adelante, el mismo compose en un VPS (DigitalOcean o similar). | 2026-10-22 |
@@ -45,19 +48,28 @@ sesión de 10 minutos, semana liviana).
 
 ## Infraestructura
 
-- **Servidor de API** — NestJS + Drizzle sobre Postgres: módulos, migraciones, validación, tests y manejo de
-  errores, en un monorepo (pnpm) con la web y un paquete de tipos compartidos.
-  <!-- id=api kind=infra status=next effort=L
-    why="Las consultas fuertes de Akro (rachas, feed, rankings, rachas grupales) son SQL con CTEs y funciones de
-    ventana: Drizzle las escribe tipadas sin salir del ORM y genera migraciones en SQL legible. Entra a Nest
-    como un provider propio, porque no tiene un módulo oficial. Todo lo demás cuelga de acá." -->
+- **Servidor de API** — NestJS + Prisma sobre Postgres: módulos, migraciones, validación, tests y manejo de
+  errores, en un monorepo (pnpm) con la web.
+  <!-- id=api kind=infra status=in_progress effort=L
+    why="Ya está la base: configuración validada con Zod, Prisma 7 con el adaptador de pg, Redis, MinIO,
+    /api/health y tests. Falta la validación de requests y el manejo de errores. Las consultas pesadas
+    (rachas, feed, rankings) van con TypedSQL o $queryRaw donde el query builder de Prisma no alcance. Todo
+    lo demás cuelga de acá." -->
 - **App web (PWA) base** — Next.js (App Router) con Serwist para el service worker, manifest para que se pueda
   instalar y un sistema de diseño mínimo.
-  <!-- id=web_app kind=infra status=next effort=M
-    why="Se diseña mobile-first: casi siempre se va a usar desde el celular. Next no trae soporte de PWA
-    propio, y Serwist (el sucesor de next-pwa) arma el service worker, que también recibe las push. Web y API
-    van bajo el mismo dominio (el proxy manda /api a Nest), así la cookie de sesión es de primera parte y no
+  <!-- id=web_app kind=infra status=in_progress effort=M
+    why="Ya se instala: manifest, íconos provisorios, service worker con página offline y /api pasando a
+    Nest por el rewrite de Next. Falta el sistema de diseño. Se diseña mobile-first: casi siempre se va a usar
+    desde el celular. Web y API van bajo el mismo dominio, así la cookie de sesión es de primera parte y no
     hace falta CORS." -->
+- **Entorno de desarrollo con Docker** — `docker compose up` levanta Postgres, Redis, MinIO, el API y la web
+  con recarga automática.
+  <!-- id=dev_env kind=infra status=in_progress effort=M deps=api,web_app
+    why="Falta probarlo de punta a punta: se armó en una máquina donde Docker Desktop no puede correr (choca
+    con Riot Vanguard y Kaspersky). El compose valida y el lockfile trae los binarios para Linux." -->
+- **Caché con Redis** — cliente conectado y en el healthcheck; el módulo de caché de Nest se suma cuando haya
+  algo para cachear.
+  <!-- id=cache kind=infra status=in_progress effort=S deps=api -->
 - **Deploy y entornos** — Docker Compose en un servidor propio: proxy con HTTPS, Next, Nest, worker y
   Postgres; staging y producción; CI que construye las imágenes; backups fuera del servidor.
   <!-- id=deploy kind=infra effort=M deps=api,web_app checklist="Checklist del servidor"
@@ -70,9 +82,9 @@ sesión de 10 minutos, semana liviana).
 - **Jobs programados** — cron y cola para lo que pasa con la app cerrada: el cierre del día de cada usuario
   (rachas), push programadas y recordatorios.
   <!-- id=jobs kind=infra effort=M deps=api
-    why="Con pg-boss sobre el mismo Postgres (sin sumar Redis), en un proceso worker aparte del API. El cierre
-    del día tiene que respetar la zona horaria de cada usuario: no se pueden evaluar todas las rachas a la
-    medianoche de Buenos Aires." -->
+    why="Con BullMQ (@nestjs/bullmq) sobre el mismo Redis de la caché, en un proceso worker aparte del API.
+    El cierre del día tiene que respetar la zona horaria de cada usuario: no se pueden evaluar todas las
+    rachas a la medianoche de Buenos Aires." -->
 - **Web Push** — claves VAPID, suscripciones por dispositivo, envío desde el servidor y limpieza de las
   suscripciones vencidas.
   <!-- id=webpush kind=infra effort=M deps=api,web_app
@@ -88,8 +100,12 @@ sesión de 10 minutos, semana liviana).
   <!-- id=realtime kind=infra effort=M deps=api
     why="No hace falta para el MVP: «X empezó a estudiar» es una push, y «Estudiando ahora» se puede refrescar
     al abrir la app." -->
-- **Almacenamiento de archivos** — almacenamiento compatible con S3 para los PDFs.
-  <!-- id=storage kind=infra effort=S deps=api -->
+- **Almacenamiento de archivos** — MinIO, con la API de S3, para los PDFs.
+  <!-- id=storage kind=infra status=in_progress effort=S deps=api
+    why="El cliente y el bucket ya están. El repo de MinIO está archivado desde abril de 2026 y no publica
+    más imágenes: en desarrollo usamos la de Chainguard. Antes de producción hay que revisar si seguimos con
+    MinIO o pasamos a otro S3 compatible (Garage, SeaweedFS, RustFS). Como el código usa solo la API de
+    S3, cambiar es tocar variables de entorno." -->
 
 ## Checklist del servidor
 
