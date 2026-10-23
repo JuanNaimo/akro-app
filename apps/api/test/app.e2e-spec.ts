@@ -1,7 +1,6 @@
-import { INestApplication } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { App } from 'supertest/types.js';
 import { AppModule } from './../src/app.module.js';
 import { configureApp } from './../src/app.setup.js';
 import {
@@ -15,7 +14,7 @@ import { StorageService } from './../src/storage/storage.service.js';
 // Los servicios externos se reemplazan: este test cubre el ruteo y los códigos HTTP,
 // no la conexión real con Postgres, Redis y MinIO.
 describe('GET /api/health (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: NestExpressApplication;
   let report: HealthReport;
 
   beforeEach(async () => {
@@ -30,7 +29,7 @@ describe('GET /api/health (e2e)', () => {
       .useValue({ check: () => Promise.resolve(report) })
       .compile();
 
-    app = moduleRef.createNestApplication();
+    app = moduleRef.createNestApplication<NestExpressApplication>();
     configureApp(app);
     await app.init();
   });

@@ -1,4 +1,7 @@
 // Schema de Akro. La URL de la base se configura en prisma7.config.ts (DATABASE_URL).
+//
+// Tablas y columnas en snake_case (@@map/@map): las consultas pesadas van con TypedSQL o
+// $queryRaw, y así el SQL se escribe sin comillas.
 
 generator client {
   provider            = "prisma-client"
@@ -10,4 +13,51 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+model User {
+  id              String       @id @default(uuid(7)) @db.Uuid
+  // Siempre en minúsculas: se normaliza al validar el pedido.
+  email           String       @unique
+  passwordHash    String       @map("password_hash")
+  // Sin verificar se puede usar la app; la web muestra un aviso.
+  emailVerifiedAt DateTime?    @map("email_verified_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  sessions        Session[]
+  emailTokens     EmailToken[]
+
+  @@map("users")
+}
+
+// El token vive solo en la cookie: acá se guarda su sha256 como id.
+model Session {
+  id        String   @id
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+enum EmailTokenKind {
+  VERIFY_EMAIL
+  RESET_PASSWORD
+
+  @@map("email_token_kind")
+}
+
+// Tokens de un solo uso que viajan por mail. Como en las sesiones, el id es el sha256 del token.
+model EmailToken {
+  id        String         @id
+  userId    String         @map("user_id") @db.Uuid
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      EmailTokenKind
+  expiresAt DateTime       @map("expires_at")
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  @@index([userId, kind])
+  @@map("email_tokens")
 }
