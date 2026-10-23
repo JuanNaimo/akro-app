@@ -172,7 +172,7 @@ describe('Auth (e2e)', () => {
     expect(mails[0].to).toBe('ana@akro.app');
     const token = verifyToken();
     expect(mails[0].text).toContain(
-      `http://localhost:3000/verificar?token=${token}`,
+      `http://localhost:3000/verify-email?token=${token}`,
     );
 
     // Sin sesión: el link se puede abrir en otro dispositivo.
@@ -242,7 +242,7 @@ describe('Auth (e2e)', () => {
       .expect(204);
     const token = resetToken();
     expect(mails.at(-1)?.text).toContain(
-      `http://localhost:3000/restablecer?token=${token}`,
+      `http://localhost:3000/reset-password?token=${token}`,
     );
 
     // Cada link sirve solo para lo suyo.

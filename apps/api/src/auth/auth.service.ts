@@ -117,7 +117,7 @@ export class AuthService {
     void this.mail.send({
       to: user.email,
       ...resetPasswordMail(
-        this.link('/restablecer', token),
+        this.link('/reset-password', token),
         RESET_PASSWORD_HOURS,
       ),
     });
@@ -152,7 +152,7 @@ export class AuthService {
     );
     void this.mail.send({
       to: user.email,
-      ...verifyEmailMail(this.link('/verificar', token), VERIFY_EMAIL_HOURS),
+      ...verifyEmailMail(this.link('/verify-email', token), VERIFY_EMAIL_HOURS),
     });
   }
 
